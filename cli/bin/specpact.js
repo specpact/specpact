@@ -32,7 +32,7 @@ Examples:
   $ specpact update user-auth stable     mark a spec stable
   $ specpact upgrade                     update scripts/modes to the latest version
 
-Docs: https://github.com/eshmamatovobidjon/specpact`);
+Docs: https://github.com/specpact/specpact`);
 
 // ── specpact init ────────────────────────────────────────────────────────────
 program
@@ -41,12 +41,17 @@ program
   .option('--no-claude',  'skip .claude/commands/ installation')
   .option('--no-copilot', 'skip .github/agents/ and .github/prompts/ installation')
   .option('--force',      'overwrite existing .sdd/ (dangerous — prompts for confirmation)')
+  .option('--project-name <name>', 'project name for non-interactive Memory Bank setup')
+  .option('--project-type <type>', 'project type for non-interactive Memory Bank setup')
+  .option('--language <stack>',    'primary language/stack for non-interactive Memory Bank setup')
+  .option('--purpose <sentence>',  'one-sentence project purpose for non-interactive Memory Bank setup')
   .addHelpText('after', `
 Examples:
   $ specpact init                 standard install — installs .sdd/, .claude/, .github/
   $ specpact init --no-claude     skip Claude Code slash commands
   $ specpact init --no-copilot    skip GitHub Copilot agents
-  $ specpact init --force         reinstall over an existing .sdd/ (prompts first)`)
+  $ specpact init --force         reinstall over an existing .sdd/ (prompts first)
+  $ specpact init --project-name API --project-type api --language Node.js --purpose "Test API"`)
   .action(initCommand);
 
 // ── specpact new <mode> <spec-id> ───────────────────────────────────────────

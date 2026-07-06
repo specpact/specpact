@@ -12,10 +12,20 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, readFileSync, cpSync } from 'node:fs';
+import {
+  mkdtempSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  cpSync,
+  mkdirSync,
+} from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
+
+import { installSdd } from '../src/lib/installer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -23,11 +33,12 @@ const BIN = resolve(__dirname, '..', 'bin', 'specpact.js');
 
 // ── Helper: run the CLI in a given directory ──────────────────────────────────
 
-function run(args, { cwd = process.cwd(), expectFail = false } = {}) {
+function run(args, { cwd = process.cwd(), expectFail = false, input = undefined } = {}) {
   const result = spawnSync(process.execPath, [BIN, ...args], {
     cwd,
     encoding: 'utf8',
     env: { ...process.env, NO_COLOR: '1' },
+    input,
   });
 
   if (!expectFail && result.status !== 0) {
@@ -45,6 +56,14 @@ function scaffoldSdd(dir) {
   // Copy templates from the bundled location into the temp dir
   const templatesDir = resolve(__dirname, '..', 'templates');
   cpSync(join(templatesDir, '.sdd'), join(dir, '.sdd'), { recursive: true });
+}
+
+function today() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -67,6 +86,69 @@ describe('specpact --help', () => {
     assert.match(result.stdout, /verify/);
     assert.match(result.stdout, /update/);
     assert.equal(result.status, 0);
+  });
+});
+
+describe('installSdd', () => {
+  let tmpDir;
+
+  before(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'specpact-test-'));
+    scaffoldSdd(tmpDir);
+  });
+
+  after(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('preserves memory and specs when force reinstalling', () => {
+    const agentsFile = join(tmpDir, '.sdd', 'memory', 'AGENTS.md');
+    const specDir = join(tmpDir, '.sdd', 'specs', 'user-owned-spec');
+    const specFile = join(specDir, 'spec.md');
+    const modeFile = join(tmpDir, '.sdd', 'modes', 'nano.md');
+    const userAgents = '# User-owned Memory Bank\nDo not overwrite this.\n';
+    const userSpec = '---\nid: user-owned-spec\nstatus: stable\n---\n# User-owned Spec\n';
+
+    writeFileSync(agentsFile, userAgents, 'utf8');
+    mkdirSync(specDir, { recursive: true });
+    writeFileSync(specFile, userSpec, 'utf8');
+    writeFileSync(modeFile, '# Old nano mode\n', 'utf8');
+
+    installSdd(tmpDir, { force: true, preserveUserContent: true });
+
+    assert.equal(readFileSync(agentsFile, 'utf8'), userAgents);
+    assert.equal(readFileSync(specFile, 'utf8'), userSpec);
+    assert.match(readFileSync(modeFile, 'utf8'), /SpecPact: Nano Mode/);
+  });
+});
+
+describe('specpact init', () => {
+  let tmpDir;
+
+  before(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'specpact-test-'));
+  });
+
+  after(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('supports non-interactive Memory Bank setup', () => {
+    run([
+      'init',
+      '--no-claude',
+      '--no-copilot',
+      '--project-name', 'Dogfood API',
+      '--project-type', 'api',
+      '--language', 'Node.js 20',
+      '--purpose', 'Tiny API for SpecPact dogfood tests',
+    ], { cwd: tmpDir });
+
+    const agentsContent = readFileSync(join(tmpDir, '.sdd', 'memory', 'AGENTS.md'), 'utf8');
+    assert.match(agentsContent, /Dogfood API/);
+    assert.match(agentsContent, /api/);
+    assert.match(agentsContent, /Node\.js 20/);
+    assert.match(agentsContent, /Tiny API for SpecPact dogfood tests/);
   });
 });
 
@@ -104,8 +186,8 @@ describe('specpact new', () => {
     const content = readFileSync(
       join(tmpDir, '.sdd', 'specs', 'date-check', 'spec.md'), 'utf8'
     );
-    const today = new Date().toISOString().slice(0, 10);
-    assert.ok(content.includes(today), `spec.md should contain today's date ${today}`);
+    const expectedDate = today();
+    assert.ok(content.includes(expectedDate), `spec.md should contain today's date ${expectedDate}`);
   });
 
   it('stamps the spec with the provided spec-id', () => {
@@ -116,6 +198,27 @@ describe('specpact new', () => {
     );
     assert.ok(content.includes(specId), `spec.md should contain spec-id ${specId}`);
     assert.ok(!content.includes('[SPEC_ID]'), 'spec.md should not contain [SPEC_ID] placeholder');
+  });
+
+  it('stamps the derived spec title', () => {
+    const specId = 'title-stamp-check';
+    run(['new', 'nano', specId], { cwd: tmpDir });
+    const content = readFileSync(
+      join(tmpDir, '.sdd', 'specs', specId, 'spec.md'), 'utf8'
+    );
+    assert.match(content, /^title: Title stamp check$/m);
+    assert.match(content, /^# Title stamp check$/m);
+    assert.ok(!content.includes('[SPEC_TITLE]'), 'spec.md should not contain [SPEC_TITLE] placeholder');
+  });
+
+  it('stamps notes.md with the provided spec-id', () => {
+    const specId = 'notes-stamp-check';
+    run(['new', 'feature', specId], { cwd: tmpDir });
+    const content = readFileSync(
+      join(tmpDir, '.sdd', 'specs', specId, 'notes.md'), 'utf8'
+    );
+    assert.match(content, new RegExp(`# Notes: ${specId}`));
+    assert.ok(!content.includes('[SPEC_ID]'), 'notes.md should not contain [SPEC_ID] placeholder');
   });
 
   it('rejects an invalid mode', () => {
@@ -160,6 +263,12 @@ describe('specpact list', () => {
     const result = run(['list'], { cwd: tmpDir });
     assert.match(result.stdout, /listed-spec/);
     assert.equal(result.status, 0);
+  });
+
+  it('shows created dates in YYYY-MM-DD format', () => {
+    run(['new', 'nano', 'date-format-spec'], { cwd: tmpDir });
+    const result = run(['list'], { cwd: tmpDir });
+    assert.match(result.stdout, new RegExp(`date-format-spec\\s+nano\\s+draft\\s+${today()}`));
   });
 });
 
@@ -214,6 +323,22 @@ describe('specpact update', () => {
       join(tmpDir, '.sdd', 'specs', 'update-me', 'spec.md'), 'utf8'
     );
     assert.match(content, /in-progress/);
+  });
+
+  it('preserves created date and updates updated date when status changes', () => {
+    run(['new', 'nano', 'date-update-me'], { cwd: tmpDir });
+    const specFile = join(tmpDir, '.sdd', 'specs', 'date-update-me', 'spec.md');
+    const initialContent = readFileSync(specFile, 'utf8')
+      .replace(/^created: .*$/m, 'created: 2000-01-01')
+      .replace(/^updated: .*$/m, 'updated: 2000-01-01');
+    writeFileSync(specFile, initialContent, 'utf8');
+
+    run(['update', 'date-update-me', 'in-progress'], { cwd: tmpDir });
+    const updatedContent = readFileSync(specFile, 'utf8');
+    const expectedDate = today();
+
+    assert.match(updatedContent, /^created: 2000-01-01$/m);
+    assert.match(updatedContent, new RegExp(`^updated: ${expectedDate}$`, 'm'));
   });
 
   it('rejects an invalid status', () => {

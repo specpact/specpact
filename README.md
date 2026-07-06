@@ -86,6 +86,16 @@ npx specpact init
 
 Answer four prompts: project name, type, language/stack, and one-sentence purpose. SpecPact stamps your Memory Bank and you're ready.
 
+For scripted setup, provide those answers as flags:
+
+```sh
+specpact init \
+  --project-name "My API" \
+  --project-type api \
+  --language "Node.js, PostgreSQL" \
+  --purpose "Handles customer account workflows"
+```
+
 **Step 2 — Fill in your Memory Bank (2 minutes)**
 
 Open `.sdd/memory/AGENTS.md` and fill in the remaining sections: your naming conventions, what the AI should never do, your backend and frontend stacks.
@@ -113,6 +123,7 @@ Your AI now has the contracts, constraints, and scope boundary before it writes 
 
 ```sh
 specpact init                          # install SpecPact, run setup wizard
+specpact init --project-name ...       # install with non-interactive setup flags
 specpact new <mode> <spec-id>          # create a spec (nano | feature | system)
 specpact list                          # show all specs with status
 specpact verify <spec-id>              # generate verification audit prompt

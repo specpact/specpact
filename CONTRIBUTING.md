@@ -24,9 +24,9 @@ A bug fix must not require the same workflow as an architectural change. SpecPac
 A spec that requires scrolling is a spec that will not be read. Feature specs must stay under 60 lines; nano specs under 20. If the contracts cannot be expressed within those limits, the change is too large for a single spec. Contributions that expand templates, add required sections, or increase minimum spec size will not be accepted.
 *Measured by: feature spec.md < 60 lines; nano spec.md < 20 lines.*
 
-**DG-04 — Zero runtime dependencies**
-SpecPact runs with Bash 3.2+ and standard POSIX tools only. No npm, pip, brew, cargo, or any other package manager. No compiled binary. No external service. A developer who has git and a terminal can install and run SpecPact on any machine without additional setup. Contributions that introduce a runtime dependency of any kind — even as an optional feature — will not be accepted.
-*Measured by: the system runs with only Bash 3.2+ and standard Unix tools.*
+**DG-04 — Minimal runtime surface**
+SpecPact's public CLI is a small Node.js package, and the installed `.sdd/` workflow files remain plain Markdown and portable shell scripts. Do not add background services, databases, compiled binaries, networked runtime dependencies, or heavyweight framework requirements. Dependencies must earn their place by making the CLI safer or more portable without making installed projects depend on them.
+*Measured by: `npx specpact init` works on Node.js 18+, and installed `.sdd/` files remain usable as plain text plus Bash 3.2+ scripts.*
 
 **DG-05 — AI-tool agnostic core**
 The `.sdd/` directory must work independently of any specific AI tool. Claude Code slash commands and the GitHub Copilot instructions file are additive integrations — not required parts of the system. A developer using any AI tool (or no AI tool at all) can use the shell scripts and templates directly. Contributions that make the core system depend on a specific AI product will not be accepted.
@@ -63,7 +63,7 @@ Clarity improvements to README and CONTRIBUTING. Fix errors, improve examples, a
 
 ## What we will not merge
 
-- Any runtime dependency (npm, pip, brew, docker, python, ruby, etc.)
+- Heavy runtime dependencies, external services, or tooling that installed projects must adopt to use SpecPact
 - Anything that increases the number of required files per spec
 - Automated spec content generation without explicit human review and confirmation
 - Changes that conflate the Memory Bank (always-loaded project context) with Specs (feature-scoped contracts) — they are different things

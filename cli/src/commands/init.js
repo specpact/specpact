@@ -41,6 +41,10 @@ const pkg = JSON.parse(
  * @param {boolean} options.claude   - true = install .claude/ (default true, --no-claude sets false)
  * @param {boolean} options.copilot  - true = install .github/ (default true, --no-copilot sets false)
  * @param {boolean} options.force    - overwrite existing .sdd/
+ * @param {string}  options.projectName - project name for non-interactive setup
+ * @param {string}  options.projectType - project type for non-interactive setup
+ * @param {string}  options.language    - primary language/stack for non-interactive setup
+ * @param {string}  options.purpose     - project purpose for non-interactive setup
  */
 export async function initCommand(options) {
   const targetDir = resolve(process.cwd());
@@ -84,7 +88,10 @@ export async function initCommand(options) {
   info('Installing SpecPact into ' + targetDir);
   spacer();
 
-  const sddResult = installSdd(targetDir, { force: options.force });
+  const sddResult = installSdd(targetDir, {
+    force: options.force,
+    preserveUserContent: options.force,
+  });
 
   if (sddResult.copied.length === 0 && !options.force) {
     err('No files were installed. Template directory may be missing.');
@@ -118,7 +125,7 @@ export async function initCommand(options) {
   }
 
   // ─── Step 6 & 7: Wizard + stamp AGENTS.md ─────────────────────────────────
-  const wizardAnswers = await runWizard();
+  const wizardAnswers = await getWizardAnswers(options);
   stampAgents(targetDir, wizardAnswers);
   ok('Memory Bank configured (.sdd/memory/AGENTS.md)');
 
@@ -130,6 +137,37 @@ export async function initCommand(options) {
 
   // ─── Step 10: Next-steps summary ──────────────────────────────────────────
   printNextSteps(wizardAnswers.name);
+}
+
+async function getWizardAnswers(options) {
+  const provided = {
+    name: options.projectName,
+    type: options.projectType,
+    language: options.language,
+    purpose: options.purpose,
+  };
+  const providedFields = Object.entries(provided).filter(([, value]) => value !== undefined);
+
+  if (providedFields.length === 0) {
+    return runWizard();
+  }
+
+  const missingFields = Object.entries(provided)
+    .filter(([, value]) => value === undefined || String(value).trim().length === 0)
+    .map(([key]) => key);
+
+  if (missingFields.length > 0) {
+    err(`Non-interactive init requires all Memory Bank fields. Missing: ${missingFields.join(', ')}`);
+    hint('Provide: --project-name, --project-type, --language, and --purpose.');
+    process.exit(1);
+  }
+
+  return {
+    name: provided.name.trim(),
+    type: provided.type.trim(),
+    language: provided.language.trim(),
+    purpose: provided.purpose.trim(),
+  };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
