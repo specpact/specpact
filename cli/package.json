@@ -1,6 +1,6 @@
 {
   "name": "specpact",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Spec-Driven Development workflow tool — init, create, list, verify, and upgrade specs from the command line.",
   "bin": {
     "specpact": "bin/specpact.js"
