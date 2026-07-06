@@ -1,7 +1,7 @@
 /**
  * update.js — specpact update <spec-id> [status]
  *
- * Updates a spec's status field and sets `created` to today's date.
+ * Updates a spec's status field and sets `updated` to today's date.
  * Full Node.js reimplementation of .sdd/scripts/update-spec.sh — no shell exec,
  * no sed, works identically on macOS, Linux, and Windows.
  *
@@ -11,7 +11,7 @@
  *   - Valid status   → update spec.md front matter in-place
  *   - Reaching stable with notes.md present → interactive prompt to delete it
  *
- * The `created` field is updated to today's date on every successful status
+ * The `updated` field is updated to today's date on every successful status
  * change (matching the shell script behaviour exactly).
  */
 
@@ -90,7 +90,7 @@ export async function updateCommand(specId, newStatus) {
   try {
     updateSpecFields(specFile, {
       status:  newStatus,
-      created: today(),
+      updated: today(),
     });
   } catch (e) {
     err(`Failed to update spec: ${e.message}`);

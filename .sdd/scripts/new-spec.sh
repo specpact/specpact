@@ -101,6 +101,14 @@ if [[ ! -f "${SPEC_TEMPLATE}" ]]; then
   exit 1
 fi
 
+if [[ "${MODE}" != "nano" && ! -f "${NOTES_TEMPLATE}" ]]; then
+  printf '\n'
+  print_err "Template not found: .sdd/templates/notes.md"
+  print_err "The .sdd/ directory may be incomplete. Re-install SpecPact."
+  printf '\n'
+  exit 1
+fi
+
 # ── Compute substitution values ───────────────────────────────────────────────
 TODAY="$(date +%Y-%m-%d)"
 

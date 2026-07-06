@@ -7,26 +7,33 @@
  * parsing logic for spec files.
  *
  * Canonical front-matter fields:
+ *   id      : kebab-case spec identifier
+ *   title   : human-readable spec title
  *   mode    : 'nano' | 'feature' | 'system'
  *   status  : 'draft' | 'in-progress' | 'stable' | 'deprecated'
  *   created : 'YYYY-MM-DD'
+ *   updated : 'YYYY-MM-DD'
+ *   author  : spec author marker or handle
+ *   adr     : optional ADR reference for system specs
  *
- * gray-matter is used for parsing.  Writing is done by a minimal, targeted
- * line-replacement approach so that field order, comments, and the rest of
- * the Markdown body are preserved exactly — gray-matter's stringify output
- * reorders keys and strips inline comments, so we avoid it for writes.
+ * Reading and writing use minimal, targeted front-matter parsing so field
+ * order, comments, and the Markdown body are preserved exactly.
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
-import matter from 'gray-matter';
 
 // ─── Public types (JSDoc only — no TypeScript) ────────────────────────────────
 
 /**
  * @typedef {Object} SpecFrontMatter
+ * @property {string} id      - kebab-case spec identifier
+ * @property {string} title   - human-readable spec title
  * @property {string} mode    - 'nano' | 'feature' | 'system'
  * @property {string} status  - 'draft' | 'in-progress' | 'stable' | 'deprecated'
  * @property {string} created - ISO date string 'YYYY-MM-DD'
+ * @property {string} updated - ISO date string 'YYYY-MM-DD'
+ * @property {string} author  - spec author marker or handle
+ * @property {string} adr     - optional ADR reference for system specs
  */
 
 /**
@@ -51,17 +58,44 @@ export function readSpec(filePath) {
   }
 
   const raw = readFileSync(filePath, 'utf8');
-  const parsed = matter(raw);
+  const parsed = parseFrontMatter(raw);
+  const field = (key) => parsed.data[key] ?? '?';
 
   return {
     data: {
-      mode:    String(parsed.data.mode    ?? '?'),
-      status:  String(parsed.data.status  ?? '?'),
-      created: String(parsed.data.created ?? '?'),
+      id:      field('id'),
+      title:   field('title'),
+      mode:    field('mode'),
+      status:  field('status'),
+      created: field('created'),
+      updated: field('updated'),
+      author:  field('author'),
+      adr:     field('adr'),
     },
     content: parsed.content,
     raw,
   };
+}
+
+function parseFrontMatter(raw) {
+  const fencePattern = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
+  const match = raw.match(fencePattern);
+
+  if (!match) {
+    return { data: {}, content: raw };
+  }
+
+  const yamlBlock = match[1];
+  const data = {};
+
+  for (const line of yamlBlock.split(/\r?\n/)) {
+    const fieldMatch = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if (fieldMatch) {
+      data[fieldMatch[1]] = fieldMatch[2].trim();
+    }
+  }
+
+  return { data, content: match[2] };
 }
 
 // ─── Write ────────────────────────────────────────────────────────────────────

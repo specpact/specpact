@@ -41,6 +41,18 @@ specpact init --no-copilot  # skip GitHub Copilot agents
 specpact init --force        # reinstall over existing .sdd/
 ```
 
+For CI or scripted setup, pass all four Memory Bank answers and the wizard is skipped:
+
+```sh
+specpact init \
+    --project-name "My API" \
+    --project-type api \
+    --language "Node.js, PostgreSQL" \
+    --purpose "Handles customer account workflows"
+```
+
+All four setup flags are required together: `--project-name`, `--project-type`, `--language`, and `--purpose`.
+
 **What it installs:**
 
 | Directory | Contents |

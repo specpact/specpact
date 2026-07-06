@@ -27,6 +27,37 @@ print_err()  { printf '  \033[31m✗\033[0m %s\n' "$1" >&2; }
 print_warn() { printf '  \033[33m⚠\033[0m %s\n' "$1"; }
 print_info() { printf '  %s\n' "$1"; }
 
+copy_bridge_dir() {
+  local src_dir="$1"
+  local dst_dir="$2"
+  local label="$3"
+  local copied=0
+  local skipped=0
+  local file
+  local dest_file
+
+  [[ -d "${src_dir}" ]] || return 0
+
+  mkdir -p "${dst_dir}"
+
+  for file in "${src_dir}"/*; do
+    [[ -f "${file}" ]] || continue
+    dest_file="${dst_dir}/$(basename "${file}")"
+    if [[ -f "${dest_file}" ]]; then
+      skipped=$((skipped + 1))
+    else
+      cp "${file}" "${dest_file}"
+      copied=$((copied + 1))
+    fi
+  done
+
+  if [[ "${copied}" -gt 0 ]]; then
+    print_ok "${label} installed (${copied} file(s))"
+  elif [[ "${skipped}" -gt 0 ]]; then
+    print_warn "${label} already exists (${skipped} file(s) preserved)"
+  fi
+}
+
 header() {
   printf '\n'
   printf '  SpecPact installer\n'
@@ -82,8 +113,8 @@ if [[ -d "${SDD_DIR}" ]]; then
   print_err "${SDD_DIR}/ already exists in this directory."
   print_err "SpecPact appears to already be installed."
   print_err ""
-  print_err "To update SpecPact scripts only (preserves your specs and memory):"
-  print_err "  bash install.sh --update     (not yet implemented — update manually)"
+  print_err "To update SpecPact scripts and modes only (preserves your specs and memory):"
+  print_err "  npx specpact upgrade"
   print_err ""
   print_err "To start fresh (WARNING: deletes all specs and memory):"
   print_err "  rm -rf .sdd/ && bash install.sh"
@@ -143,16 +174,10 @@ else
     fi
   fi
 
-  # GitHub Copilot instructions
-  if [[ -f "/tmp/specpact-install/.github/copilot-instructions.md" ]]; then
-    if [[ -f ".github/copilot-instructions.md" ]]; then
-      print_warn ".github/copilot-instructions.md already exists — not overwriting."
-      print_warn "Compare manually with /tmp/specpact-install/.github/copilot-instructions.md"
-    else
-      mkdir -p .github
-      cp /tmp/specpact-install/.github/copilot-instructions.md .github/
-      print_ok "Copilot instructions installed: .github/copilot-instructions.md"
-    fi
+  # GitHub Copilot agents and prompt files
+  if [[ -d "/tmp/specpact-install/.github" ]]; then
+    copy_bridge_dir "/tmp/specpact-install/.github/agents" ".github/agents" "Copilot agents"
+    copy_bridge_dir "/tmp/specpact-install/.github/prompts" ".github/prompts" "Copilot prompts"
   fi
 fi
 

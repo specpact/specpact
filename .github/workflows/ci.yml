@@ -7,9 +7,9 @@ on:
     branches: [main]
 
 jobs:
-  # ── JavaScript lint ──────────────────────────────────────────────────────────
+  # ── JavaScript lint and release checks ───────────────────────────────────────
   lint-js:
-    name: Lint / ESLint
+    name: Lint / ESLint & package checks
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -30,6 +30,17 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
+
+      - name: Check bundled templates are in sync
+        run: |
+          npm run sync-templates
+          git diff --exit-code -- templates
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
+
+      - name: Check package contents
+        run: npm pack --dry-run
 
   # ── CLI smoke tests ──────────────────────────────────────────────────────────
   test-cli:
@@ -89,3 +100,6 @@ jobs:
         with:
           scandir: .sdd/scripts
           severity: warning
+
+      - name: Check installer syntax
+        run: bash -n install.sh .sdd/scripts/init.sh

@@ -7,7 +7,7 @@
  *   .github/    — GitHub Copilot agents and prompts
  *
  * Merge strategy:
- *   - .sdd/     : always installed; if --force was passed, overwrite
+ *   - .sdd/     : installed in full on first run; --force preserves memory/specs
  *   - .claude/  : merged file-by-file; never clobbers existing user files
  *   - .github/  : merged file-by-file; never clobbers existing user files
  */
@@ -30,15 +30,16 @@ const TEMPLATES_DIR = join(__dirname, '..', '..', 'templates');
  * @param {string} dest - destination directory in target project
  * @param {object} options
  * @param {boolean} options.merge   - skip existing files when true
- * @param {boolean} options.force  - overwrite all existing files when true
+ * @param {boolean} options.force  - overwrite existing files when true
+ * @param {string[]} options.preserve - relative paths to skip entirely
  * @returns {{ copied: string[], skipped: string[] }}
  */
-export function copyDirectory(src, dest, { merge = false, force = false } = {}) {
+export function copyDirectory(src, dest, { merge = false, force = false, preserve = [] } = {}) {
   const result = { copied: [], skipped: [] };
 
   if (!existsSync(src)) return result;
 
-  walkAndCopy(src, dest, src, { merge, force }, result);
+  walkAndCopy(src, dest, src, { merge, force, preserve }, result);
   return result;
 }
 
@@ -55,6 +56,11 @@ function walkAndCopy(src, dest, rootSrc, options, result) {
     } else {
       const relPath = relative(rootSrc, srcPath);
 
+      if (isPreserved(relPath, options.preserve)) {
+        result.skipped.push(relPath);
+        continue;
+      }
+
       if (options.merge && !options.force && existsSync(destPath)) {
         result.skipped.push(relPath);
       } else {
@@ -66,18 +72,29 @@ function walkAndCopy(src, dest, rootSrc, options, result) {
   }
 }
 
+function isPreserved(relPath, preserve) {
+  const normalisedRelPath = relPath.replace(/\\/g, '/');
+  return preserve.some((preservedPath) => {
+    const normalisedPreservedPath = preservedPath.replace(/\\/g, '/').replace(/\/$/, '');
+    return normalisedRelPath === normalisedPreservedPath ||
+      normalisedRelPath.startsWith(`${normalisedPreservedPath}/`);
+  });
+}
+
 /**
  * Install .sdd/ into target directory.
  *
  * @param {string} targetDir - absolute path to the project root
  * @param {object} options
  * @param {boolean} options.force
+ * @param {boolean} options.preserveUserContent
  * @returns {{ copied: string[], skipped: string[] }}
  */
-export function installSdd(targetDir, { force = false } = {}) {
+export function installSdd(targetDir, { force = false, preserveUserContent = false } = {}) {
   const src = join(TEMPLATES_DIR, '.sdd');
   const dest = join(targetDir, '.sdd');
-  return copyDirectory(src, dest, { merge: false, force });
+  const preserve = preserveUserContent ? ['memory', 'specs'] : [];
+  return copyDirectory(src, dest, { merge: false, force, preserve });
 }
 
 /**

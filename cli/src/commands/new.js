@@ -10,7 +10,7 @@
  *   3. Guard: ensure .sdd/ exists (i.e. specpact init has been run)
  *   4. Guard: block if spec already exists
  *   5. Guard: ensure template file exists
- *   6. Stamp template → spec.md  (replace YYYY-MM-DD and <spec-id>)
+ *   6. Stamp template → spec.md  (replace spec/date/title placeholders)
  *   7. Create notes.md for feature / system modes
  *   8. Print confirmation and next-step hint
  */
@@ -74,12 +74,15 @@ export function newCommand(mode, specId) {
   mkdirSync(specDir, { recursive: true });
 
   const date = today();
+  const specTitle = titleFromSpecId(specId);
   const rawTemplate = readFileSync(templateFile, 'utf8');
   const stampedSpec = rawTemplate
     .replace(/YYYY-MM-DD/g, date)
     .replace(/\[SPEC_DATE\]/g, date)
     .replace(/<spec-id>/g, specId)
-    .replace(/\[SPEC_ID\]/g, specId);
+    .replace(/\[SPEC_ID\]/g, specId)
+    .replace(/<spec-title>/g, specTitle)
+    .replace(/\[SPEC_TITLE\]/g, specTitle);
 
   const specFile = join(specDir, 'spec.md');
   writeFileSync(specFile, stampedSpec, 'utf8');
@@ -91,7 +94,9 @@ export function newCommand(mode, specId) {
 
     if (existsSync(notesTemplateFile)) {
       const rawNotes = readFileSync(notesTemplateFile, 'utf8');
-      const stampedNotes = rawNotes.replace(/<spec-id>/g, specId);
+      const stampedNotes = rawNotes
+        .replace(/<spec-id>/g, specId)
+        .replace(/\[SPEC_ID\]/g, specId);
       writeFileSync(notesFile, stampedNotes, 'utf8');
     } else {
       // Graceful fallback: create a minimal empty notes.md
@@ -111,4 +116,16 @@ export function newCommand(mode, specId) {
   hint(`Next: fill in the spec, then load it into your AI tool.`);
   hint(`  Claude Code:  /spec-load ${specId}`);
   hint(`  Copilot:      use the spec-load prompt with spec-id: ${specId}`);
+}
+
+/**
+ * Convert a kebab-case spec ID into the same human-readable title used by
+ * .sdd/scripts/new-spec.sh.
+ *
+ * @param {string} specId
+ * @returns {string}
+ */
+function titleFromSpecId(specId) {
+  const rawTitle = specId.replace(/-/g, ' ');
+  return rawTitle.charAt(0).toUpperCase() + rawTitle.slice(1);
 }

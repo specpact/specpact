@@ -23,12 +23,19 @@
     "specpact",
     "cli"
   ],
-  "author": "",
+  "author": "Obidjon Eshmamatov",
   "license": "MIT",
+  "homepage": "https://github.com/specpact/specpact#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/specpact/specpact.git"
+  },
+  "bugs": {
+    "url": "https://github.com/specpact/specpact/issues"
+  },
   "dependencies": {
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
-    "gray-matter": "^4.0.3",
     "inquirer": "^9.3.7"
   },
   "devDependencies": {

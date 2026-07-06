@@ -25,6 +25,37 @@ print_err()  { printf '  \033[31m✗\033[0m %s\n' "$1" >&2; }
 print_warn() { printf '  \033[33m⚠\033[0m %s\n' "$1"; }
 print_info() { printf '  %s\n' "$1"; }
 
+copy_bridge_dir() {
+  local src_dir="$1"
+  local dst_dir="$2"
+  local label="$3"
+  local copied=0
+  local skipped=0
+  local file
+  local dest_file
+
+  [[ -d "${src_dir}" ]] || return 0
+
+  mkdir -p "${dst_dir}"
+
+  for file in "${src_dir}"/*; do
+    [[ -f "${file}" ]] || continue
+    dest_file="${dst_dir}/$(basename "${file}")"
+    if [[ -f "${dest_file}" ]]; then
+      skipped=$((skipped + 1))
+    else
+      cp "${file}" "${dest_file}"
+      copied=$((copied + 1))
+    fi
+  done
+
+  if [[ "${copied}" -gt 0 ]]; then
+    print_ok "${label} installed (${copied} file(s))"
+  elif [[ "${skipped}" -gt 0 ]]; then
+    print_ok "${label} already in place (${skipped} file(s) preserved)"
+  fi
+}
+
 # Portable in-place sed replacement.
 # Usage: sed_inplace 's/find/replace/g' file
 # Uses -i .bak on macOS (BSD sed) and -i on Linux (GNU sed) — the .bak trick
@@ -134,28 +165,25 @@ if [[ "${INSTALL_CLAUDE}" =~ ^[Yy]$ ]]; then
   fi
 fi
 
-# ── Optional: GitHub Copilot instructions ─────────────────────────────────────
+# ── Optional: GitHub Copilot agents and prompts ───────────────────────────────
 printf '\n'
-COPILOT_SRC="$(cd "${SDD_DIR}/.." && pwd)/.github/copilot-instructions.md"
-COPILOT_DST="${PROJECT_ROOT}/.github/copilot-instructions.md"
+COPILOT_SRC_ROOT="$(cd "${SDD_DIR}/.." && pwd)/.github"
+COPILOT_DST_ROOT="${PROJECT_ROOT}/.github"
 
 # Skip prompt entirely if source and destination are the same resolved path
-# (happens when SpecPact is installed at the project root — SDD_DIR/../.github IS .github)
-if [[ -f "${COPILOT_SRC}" && "${COPILOT_SRC}" -ef "${COPILOT_DST}" ]]; then
-  print_ok "Copilot instructions already in place → .github/copilot-instructions.md"
-elif [[ -f "${COPILOT_DST}" ]]; then
-  print_warn "Copilot instructions already exist → .github/copilot-instructions.md (not overwriting)"
+# (happens when SpecPact is installed at the project root — SDD_DIR/../.github IS .github).
+if [[ -d "${COPILOT_SRC_ROOT}" && -d "${COPILOT_DST_ROOT}" && "${COPILOT_SRC_ROOT}" -ef "${COPILOT_DST_ROOT}" ]]; then
+  print_ok "Copilot agents/prompts already in place → .github/"
 else
-  printf '  Set up GitHub Copilot instructions? (y/n): '
+  printf '  Set up GitHub Copilot agents and prompts? (y/n): '
   read -r INSTALL_COPILOT || INSTALL_COPILOT="n"
   if [[ "${INSTALL_COPILOT}" =~ ^[Yy]$ ]]; then
-    if [[ -f "${COPILOT_SRC}" ]]; then
-      mkdir -p "${PROJECT_ROOT}/.github"
-      cp "${COPILOT_SRC}" "${COPILOT_DST}"
-      print_ok "Copilot instructions installed → .github/copilot-instructions.md"
+    if [[ -d "${COPILOT_SRC_ROOT}" ]]; then
+      copy_bridge_dir "${COPILOT_SRC_ROOT}/agents" "${COPILOT_DST_ROOT}/agents" "Copilot agents"
+      copy_bridge_dir "${COPILOT_SRC_ROOT}/prompts" "${COPILOT_DST_ROOT}/prompts" "Copilot prompts"
     else
-      print_warn ".github/copilot-instructions.md source not found."
-      print_warn "Copilot instructions were not installed."
+      print_warn ".github/ source not found."
+      print_warn "Copilot agents/prompts were not installed."
     fi
   fi
 fi
